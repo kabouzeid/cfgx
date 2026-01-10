@@ -1,0 +1,250 @@
+import ast
+import inspect
+import os
+import re
+import runpy
+import subprocess
+from functools import reduce
+from pathlib import Path
+from typing import Callable, Sequence
+
+
+class Delete:
+    """Sentinel that removes a key from a merged config."""
+    pass
+
+
+class Replace:
+    """Sentinel that forces a value to replace a mapping during merge."""
+
+    def __init__(self, value, /):
+        self.value = value
+
+
+def load(path: os.PathLike | Sequence[os.PathLike], params: dict | None = None):
+    """
+    Load config modules from one or more paths, apply params, and merge the results.
+
+    Parent configs (via `parents`) are resolved first, then later paths override
+    earlier ones. Callable configs receive params (defaults come from signatures);
+    plain dict configs are merged directly.
+    """
+
+    paths = [path] if isinstance(path, (str, os.PathLike)) else path
+    specs = [spec for p in paths for spec in _collect_config_specs(Path(p))]
+
+    # last assignment wins. we could also deep merge, but it feels less natural here
+    params = {k: v for _, d in specs for k, v in d.items()} | (params or {})
+
+    return reduce(
+        merge,
+        (_build_config(config, params) for config in [cfg for cfg, _ in specs]),
+    )
+
+
+def _build_config(config: dict | Callable, params: dict):
+    return config(**params) if callable(config) else config
+
+
+def _collect_config_specs(path: os.PathLike) -> list[tuple[dict, dict]]:
+    """
+    Return the flattened inheritance chain for the config at `path`. Ordered from the farthest parent first.
+    """
+    path = Path(path).resolve()
+    config_module_globs = runpy.run_path(str(path), run_name="__config__")
+
+    config = config_module_globs.get("config", {})
+    params = _defaults_args(config) if callable(config) else {}
+
+    parents = config_module_globs.get("parents", None)
+    if isinstance(parents, str):
+        parents = [parents]
+
+    return [
+        parent_cfg_specs
+        for parent in parents or []
+        for parent_cfg_specs in _collect_config_specs(path.parent / Path(parent))
+    ] + [(config, params)]
+
+
+def _defaults_args(f: Callable) -> dict:
+    return {
+        name: param.default
+        for name, param in inspect.signature(f).parameters.items()
+        if param.default is not inspect.Parameter.empty
+    }
+
+
+def dump(config: dict, path: os.PathLike):
+    """
+    Persist a config dictionary to a ruff-formatted Python file.
+    """
+
+    config_str = _ruff_format(
+        "# Auto-generated config snapshot\nconfig = " + repr(config)
+    )
+
+    with open(path, "w") as f:
+        f.write("# fmt: off\n")  # prevent auto-formatting
+        f.write(config_str)
+
+
+def format(config: dict) -> str:
+    """Return a ruff-formatted string representation of the config dictionary."""
+    return _ruff_format(repr(config))
+
+
+def _ruff_format(source: str) -> str:
+    from ruff.__main__ import find_ruff_bin
+
+    result = subprocess.run(
+        [find_ruff_bin(), "format", "--isolated", "--stdin-filename=config.py", "-"],
+        input=source,
+        text=True,
+        capture_output=True,
+        check=True,
+        cwd=Path.cwd(),
+    )
+    result.check_returncode()
+    return result.stdout
+
+
+def merge(base: dict, override: dict):
+    """
+    Recursively merge two dictionaries, honoring Delete/Replace sentinels.
+
+    If both sides contain dicts, merge continues down the tree. Delete removes a key
+    from the base config, Replace overwrites without further deep merging, and other
+    values simply override. Returns a new dictionary without mutating the inputs.
+    """
+    base = base.copy()
+    for k, v in override.items():
+        if k in base and isinstance(base[k], dict) and isinstance(v, dict):
+            base[k] = merge(base[k], v)
+        elif isinstance(v, Delete):
+            base.pop(k, None)
+        elif isinstance(v, Replace):
+            base[k] = v.value
+        else:
+            base[k] = v
+    return base
+
+
+def apply_overrides(cfg: dict, overrides: Sequence[str]):
+    """
+    Apply CLI-style override strings to a config dictionary.
+
+    Supports assignment (`=`), append (`+=`), delete (`!=`), and removal from list
+    (`-=`) using dotted/indexed key paths like ``model.layers[0].units``. Returns a
+    shallow copy with overrides applied.
+    """
+
+    cfg = cfg.copy()
+    for override in overrides:
+        if "+=" in override:
+            key, value = override.split("+=", 1)
+            keys = parse_key_path(key)
+            append_to_nested(cfg, keys, infer_type(value))
+        elif "!=" in override:
+            key, _ = override.split("!=", 1)
+            keys = parse_key_path(key)
+            delete_nested(cfg, keys)
+        elif "-=" in override:
+            key, value = override.split("-=", 1)
+            keys = parse_key_path(key)
+            remove_value_from_list(cfg, keys, infer_type(value))
+        else:
+            key, value = override.split("=", 1)
+            keys = parse_key_path(key)
+            set_nested(cfg, keys, infer_type(value))
+    return cfg
+
+
+def parse_key_path(path: str):
+    """Parse 'a.b[0].c' → ['a', 'b', 0, 'c']"""
+    tokens = []
+    parts = re.split(r"(\[-?\d+\]|\.)", path)
+    for part in parts:
+        if not part or part == ".":
+            continue
+        if part.startswith("[") and part.endswith("]"):
+            tokens.append(int(part[1:-1]))
+        else:
+            tokens.append(part)
+    return tokens
+
+
+def set_nested(d: dict, keys, value):
+    for i, key in enumerate(keys):
+        is_last = i == len(keys) - 1
+        if isinstance(key, int):
+            while len(d) <= key:
+                d.append(None)
+            if is_last:
+                d[key] = value
+            else:
+                if d[key] is None:
+                    d[key] = {} if isinstance(keys[i + 1], str) else []
+                d = d[key]
+        else:
+            if is_last:
+                d[key] = value
+            else:
+                if key not in d or d[key] is None:
+                    d[key] = {} if isinstance(keys[i + 1], str) else []
+                d = d[key]
+
+
+def append_to_nested(d: dict, keys, value):
+    for i, key in enumerate(keys):
+        is_last = i == len(keys) - 1
+        next_key_type = type(keys[i + 1]) if not is_last else None
+
+        if isinstance(key, int):
+            while len(d) <= key:
+                d.append(None)
+            if is_last:
+                if d[key] is None:
+                    d[key] = []
+                if not isinstance(d[key], list):
+                    raise ValueError(f"Target at index {key} is not a list")
+                d[key].append(value)
+            else:
+                if d[key] is None:
+                    d[key] = {} if next_key_type is str else []
+                d = d[key]
+        else:
+            if is_last:
+                if key not in d or not isinstance(d[key], list):
+                    d[key] = []
+                d[key].append(value)
+            else:
+                if key not in d or d[key] is None:
+                    d[key] = {} if next_key_type is str else []
+                d = d[key]
+
+
+def delete_nested(d: dict, keys):
+    for i, key in enumerate(keys[:-1]):
+        d = d[key]
+    last_key = keys[-1]
+    if isinstance(last_key, int):
+        if isinstance(d, list) and 0 <= last_key < len(d):
+            del d[last_key]
+    else:
+        d.pop(last_key, None)
+
+
+def remove_value_from_list(d: dict, keys, value):
+    for key in keys:
+        d = d[key]
+    if isinstance(d, list) and value in d:
+        d.remove(value)
+    # TODO: this should probably raise if d is not a list
+
+
+def infer_type(val: str):
+    try:
+        return ast.literal_eval(val)
+    except (ValueError, SyntaxError):
+        return val
