@@ -1,11 +1,13 @@
 import pytest
 
 from cfgx.config import (
+    Lazy,
     apply_overrides,
     dump,
     format,
     infer_type,
     parse_key_path,
+    resolve_lazy,
     set_nested,
 )
 
@@ -47,6 +49,18 @@ def test_parse_key_path(input_path, expected):
 )
 def test_infer_type(input_val, expected):
     assert infer_type(input_val) == expected
+
+
+def test_infer_type_lazy():
+    value = infer_type("lazy:c.trainer.max_steps * 0.1")
+    assert isinstance(value, Lazy)
+
+
+def test_infer_type_lazy_expression_resolves():
+    cfg = {"trainer": {"max_steps": 1000}}
+    apply_overrides(cfg, ["warmup_steps=lazy:c.trainer.max_steps * 0.1"])
+    resolve_lazy(cfg)
+    assert cfg["warmup_steps"] == 100
 
 
 ### --- set_nested tests --- ###

@@ -380,6 +380,8 @@ def remove_value_from_list(d: dict, keys, value):
 
 
 def infer_type(val: str):
+    if val.startswith("lazy:"):
+        return Lazy(val[len("lazy:") :])
     try:
         return ast.literal_eval(val)
     except (ValueError, SyntaxError):

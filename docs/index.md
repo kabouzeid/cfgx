@@ -149,6 +149,7 @@ apply_overrides(
         "trainer.hooks+='wandb'",
         "trainer.hooks-='checkpoint'",
         "data.pipeline[0]!=",
+        "trainer.warmup_steps=lazy:c.trainer.max_steps * 0.1",
     ],
 )
 ```
