@@ -207,8 +207,7 @@ def test_format_simple_dict():
     },
     "optimizer": {"type": "adam", "lr": 0.0003},
     "trainer": {"max_steps": 50000},
-}
-"""
+}"""
     assert formatted == expected
 
 

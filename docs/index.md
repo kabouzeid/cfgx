@@ -196,12 +196,13 @@ Freeze the exact configuration you ran:
 from pathlib import Path
 from cfgx import dump, format
 
-print(format(cfg))  # Black-formatted string
+print(format(cfg))  # Ruff-formatted when available, pprint fallback otherwise
 dump(cfg, Path("runs/2024-01-10/config_snapshot.py"))
 ```
 
-- `format` returns a nicely formatted string—useful for logging.
+- `format` returns a nicely formatted string—useful for logging. Use `formatter="pprint"` or `formatter="ruff"` to force a choice.
 - `dump` writes the same representation to disk with a short header and `# fmt: off`. Because the file is valid Python, you can load it again with `load`.
+  Install `ruff` or `cfgx[format]` to use the Ruff formatter.
 
 ## Tips for structuring configs
 

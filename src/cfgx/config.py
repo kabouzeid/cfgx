@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from functools import reduce
 from pathlib import Path
+from pprint import pformat
 
 
 class Delete:
@@ -77,22 +78,32 @@ def _collect_config_specs(path: os.PathLike) -> list[dict]:
     ] + [config]
 
 
-def dump(config: dict, path: os.PathLike):
+def dump(config: dict, path: os.PathLike, formatter: str = "auto"):
     """
-    Persist a config dictionary to a ruff-formatted Python file.
+    Persist a config dictionary to a formatted Python file.
     """
 
-    config_str = _ruff_format(
-        "# Auto-generated config snapshot\nconfig = " + repr(config)
-    )
+    if formatter not in {"auto", "ruff", "pprint"}:
+        raise ValueError(f"Unknown formatter: {formatter}")
+
+    header = "# Auto-generated config snapshot\n"
+    if formatter == "pprint" or (formatter == "auto" and not _ruff_available()):
+        config_str = header + "config = " + pformat(config, width=88)
+    else:
+        config_str = _ruff_format(header + "config = " + repr(config))
 
     with open(path, "w") as f:
         f.write("# fmt: off\n")  # prevent auto-formatting
-        f.write(config_str)
+        f.write(config_str + "\n")
 
 
-def format(config: dict) -> str:
-    """Return a ruff-formatted string representation of the config dictionary."""
+def format(config: dict, formatter: str = "auto") -> str:
+    """Return a formatted string representation of the config dictionary."""
+    if formatter not in {"auto", "ruff", "pprint"}:
+        raise ValueError(f"Unknown formatter: {formatter}")
+
+    if formatter == "pprint" or (formatter == "auto" and not _ruff_available()):
+        return pformat(config, width=88)
     return _ruff_format(repr(config))
 
 
@@ -107,8 +118,15 @@ def _ruff_format(source: str) -> str:
         check=True,
         cwd=Path.cwd(),
     )
-    result.check_returncode()
-    return result.stdout
+    return result.stdout.rstrip("\n")
+
+
+def _ruff_available() -> bool:
+    try:
+        import ruff
+    except ModuleNotFoundError:
+        return False
+    return ruff is not None
 
 
 def merge(base: dict, override: dict):
