@@ -1,6 +1,6 @@
 [project]
 name = "cfgx"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python-first config loader with composition and CLI overrides."
 readme = "README.md"
 authors = [
