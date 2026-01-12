@@ -329,72 +329,60 @@ def parse_key_path(path: str):
 
 
 def set_nested(d: dict, keys, value):
-    for i, key in enumerate(keys):
-        is_last = i == len(keys) - 1
-        if isinstance(key, int):
-            while len(d) <= key:
-                d.append(None)
-            if is_last:
-                d[key] = value
-            else:
-                if d[key] is None:
-                    d[key] = {} if isinstance(keys[i + 1], str) else []
-                d = d[key]
-        else:
-            if is_last:
-                d[key] = value
-            else:
-                if key not in d or d[key] is None:
-                    d[key] = {} if isinstance(keys[i + 1], str) else []
-                d = d[key]
+    parent, last_key = _walk_to_parent(d, keys, create=True)
+    if isinstance(last_key, int):
+        while len(parent) <= last_key:
+            parent.append(None)
+    parent[last_key] = value
 
 
 def append_to_nested(d: dict, keys, value):
-    for i, key in enumerate(keys):
-        is_last = i == len(keys) - 1
-        next_key_type = type(keys[i + 1]) if not is_last else None
-
-        if isinstance(key, int):
-            while len(d) <= key:
-                d.append(None)
-            if is_last:
-                if d[key] is None:
-                    d[key] = []
-                if not isinstance(d[key], list):
-                    raise ValueError(f"Target at index {key} is not a list")
-                d[key].append(value)
-            else:
-                if d[key] is None:
-                    d[key] = {} if next_key_type is str else []
-                d = d[key]
-        else:
-            if is_last:
-                if key not in d or not isinstance(d[key], list):
-                    d[key] = []
-                d[key].append(value)
-            else:
-                if key not in d or d[key] is None:
-                    d[key] = {} if next_key_type is str else []
-                d = d[key]
+    parent, last_key = _walk_to_parent(d, keys, create=True)
+    if isinstance(last_key, int):
+        while len(parent) <= last_key:
+            parent.append(None)
+        target = parent[last_key]
+        if target is None:
+            target = []
+    else:
+        target = parent[last_key] if last_key in parent else []
+    if not isinstance(target, list):
+        raise ValueError("Target is not a list")
+    target.append(value)
+    parent[last_key] = target
 
 
 def delete_nested(d: dict, keys):
-    for i, key in enumerate(keys[:-1]):
-        d = d[key]
-    last_key = keys[-1]
+    parent, last_key = _walk_to_parent(d, keys, create=False)
     if isinstance(last_key, int):
-        if isinstance(d, list) and 0 <= last_key < len(d):
-            del d[last_key]
+        if isinstance(parent, list) and 0 <= last_key < len(parent):
+            del parent[last_key]
     else:
-        d.pop(last_key, None)
+        parent.pop(last_key, None)
 
 
 def remove_value_from_list(d: dict, keys, value):
-    for key in keys:
+    parent, last_key = _walk_to_parent(d, keys, create=False)
+    target = parent[last_key]
+    if not isinstance(target, list):
+        raise ValueError("Target is not a list")
+    if value in target:
+        target.remove(value)
+
+
+def _walk_to_parent(d: dict, keys, *, create: bool):
+    for i, key in enumerate(keys[:-1]):
+        if create:
+            if isinstance(key, int):
+                while len(d) <= key:
+                    d.append(None)
+                if d[key] is None:
+                    d[key] = {} if isinstance(keys[i + 1], str) else []
+            else:
+                if key not in d or d[key] is None:
+                    d[key] = {} if isinstance(keys[i + 1], str) else []
         d = d[key]
-    if isinstance(d, list) and value in d:
-        d.remove(value)
-    # TODO: this should probably raise if d is not a list
+    return d, keys[-1]
 
 
 def infer_type(val: str):

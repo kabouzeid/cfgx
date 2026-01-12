@@ -137,6 +137,12 @@ def test_apply_overrides_append():
     }
 
 
+def test_apply_overrides_append_non_list_raises():
+    cfg = {"a": {"b": 1}}
+    with pytest.raises(ValueError, match="not a list"):
+        apply_overrides(cfg, ["a.b+=2"])
+
+
 def test_delete_dict_key():
     cfg = {"a": {"b": {"c": 123, "d": 456}}}
     overrides = ["a.b.c!="]
@@ -156,6 +162,12 @@ def test_delete_list_value():
     overrides = ['tags-="train"']
     updated = apply_overrides(cfg, overrides)
     assert updated == {"tags": ["debug", "final"]}
+
+
+def test_delete_list_value_non_list_raises():
+    cfg = {"tags": "train"}
+    with pytest.raises(ValueError, match="not a list"):
+        apply_overrides(cfg, ['tags-="train"'])
 
 
 def test_set_special_key():
