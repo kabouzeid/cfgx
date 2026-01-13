@@ -150,7 +150,8 @@ Use `Lazy` for values that should be computed from the merged config. A `Lazy`
 receives `c`, a read-only proxy for the config where dicts are `Mapping`s and
 lists are `Sequence`s. You can use attribute access (`c.trainer.max_steps`),
 string keys (`c["trainer"]["max_steps"]`), and list indices
-(`c.trainer.stages[0].max_steps`). Lazy values are resolved in-place after
+(`c.trainer.stages[0].max_steps`). String expressions can also use `math` and
+Python builtins. Lazy values are resolved in-place after
 loading (or when you call `resolve_lazy`) and only when they appear inside
 nested dict/list structures.
 

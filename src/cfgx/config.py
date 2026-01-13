@@ -1,4 +1,5 @@
 import ast
+import math
 import os
 import re
 import runpy
@@ -29,7 +30,7 @@ class Lazy:
             code = compile(func, "<lazy>", "eval")
 
             def _from_expr(c):
-                return eval(code, {}, {"c": c})
+                return eval(code, {}, {"c": c, "math": math})
 
             self.func = _from_expr
         else:

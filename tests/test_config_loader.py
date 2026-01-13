@@ -236,6 +236,23 @@ def test_lazy_expression_builtins_available(tmp_path):
     assert cfg["best"] == 5
 
 
+def test_lazy_expression_math_available(tmp_path):
+    cfg_path = tmp_path / "cfg.py"
+    _write(
+        cfg_path,
+        """
+        from cfgx import Lazy
+        config = {
+            "value": 9,
+            "root": Lazy("math.sqrt(c['value'])"),
+        }
+        """,
+    )
+
+    cfg = load(cfg_path)
+    assert cfg["root"] == 3.0
+
+
 def test_lazy_same_dict_sibling_access(tmp_path):
     cfg_path = tmp_path / "cfg.py"
     _write(
