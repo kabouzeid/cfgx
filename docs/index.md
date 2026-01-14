@@ -200,7 +200,7 @@ Freeze the exact configuration you ran:
 
 - `format` returns a string derived from `repr(cfg)`; formatting is opt-in (`pprint` or `ruff`).
 - `dump` writes the same representation to a file handle; `dumps` returns the snapshot string.
-- `sort_keys=True` sorts dict keys throughout nested dict/list/tuple structures, including
+- `sort_keys=True` sorts dict keys throughout nested dict/list structures, including
   dict subclasses.
 - These are best-effort snapshots: you're responsible for `repr()` being valid Python
   that can recreate the config. If it isn't, formatting can raise (for example, on a

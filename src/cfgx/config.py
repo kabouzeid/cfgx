@@ -100,7 +100,7 @@ def dump(
     Python that can be reloaded with any required imports available. Otherwise
     formatting can raise or the snapshot may fail to load.
 
-    sort_keys orders dict keys throughout nested dict/list/tuple structures,
+    sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
     """
 
@@ -120,7 +120,7 @@ def dumps(
     Python that can be reloaded with any required imports available. Otherwise
     formatting can raise or the snapshot may fail to load.
 
-    sort_keys orders dict keys throughout nested dict/list/tuple structures,
+    sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
     """
     return _format_snapshot(config, format=format, sort_keys=sort_keys)
@@ -158,7 +158,7 @@ def format(
 
     Formatting is best-effort; invalid repr output can raise or fail to reload.
 
-    sort_keys orders dict keys throughout nested dict/list/tuple structures,
+    sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
     """
     if format is False:
@@ -198,8 +198,6 @@ def _sort_keys(value):
         return {key: _sort_keys(value[key]) for key in sorted(value)}
     if isinstance(value, list):
         return [_sort_keys(item) for item in value]
-    if isinstance(value, tuple):
-        return tuple(_sort_keys(item) for item in value)
     return value
 
 
@@ -423,104 +421,79 @@ def _split_override(override: str):
 
 def set_nested(d: dict, keys, value):
     parent, last_key = _walk_to_parent(d, keys, create=True)
-    if isinstance(last_key, int):
-        while len(parent) <= last_key:
-            parent.append(None)
-    parent[last_key] = value
+    _assign_item(parent, last_key, value)
 
 
 def append_to_nested(d: dict, keys, value):
     parent, last_key = _walk_to_parent(d, keys, create=True)
-    if isinstance(last_key, int):
-        while len(parent) <= last_key:
-            parent.append(None)
+    try:
         target = parent[last_key]
-        if target is None:
-            target = []
-    else:
-        target = parent[last_key] if last_key in parent else []
+    except IndexError:
+        if isinstance(parent, list) and isinstance(last_key, int) and last_key < 0:
+            raise
+        target = []
+        _assign_item(parent, last_key, target)
+    except KeyError:
+        target = []
+        _assign_item(parent, last_key, target)
     if not isinstance(target, list):
         raise ValueError("Target is not a list")
     target.append(value)
-    parent[last_key] = target
+    _assign_item(parent, last_key, target)
 
 
 def delete_nested(d: dict, keys):
     parent, last_key = _walk_to_parent_if_exists(d, keys)
     if parent is None:
         return
-    if isinstance(last_key, int):
-        if not isinstance(parent, list):
-            return
-        index = last_key
-        if index < 0:
-            index += len(parent)
-        if 0 <= index < len(parent):
-            del parent[index]
-    else:
-        if not isinstance(parent, dict):
-            return
-        parent.pop(last_key, None)
+    try:
+        del parent[last_key]
+    except (KeyError, IndexError):
+        return
 
 
 def remove_value_from_list(d: dict, keys, value):
     parent, last_key = _walk_to_parent_if_exists(d, keys)
     if parent is None:
         return
-    if isinstance(last_key, int):
-        if not isinstance(parent, list):
-            return
-        index = last_key
-        if index < 0:
-            index += len(parent)
-        if index < 0 or index >= len(parent):
-            return
-        target = parent[index]
-    else:
-        if not isinstance(parent, dict):
-            return
-        if last_key not in parent:
-            return
+    try:
         target = parent[last_key]
+    except (KeyError, IndexError):
+        return
     if not isinstance(target, list):
         raise ValueError("Target is not a list")
     if value in target:
         target.remove(value)
 
 
+def _assign_item(container, key, value):
+    if isinstance(container, list) and isinstance(key, int) and key >= 0:
+        while len(container) <= key:
+            container.append(None)
+    container[key] = value
+
+
 def _walk_to_parent(d: dict, keys, *, create: bool):
+    current = d
     for i, key in enumerate(keys[:-1]):
-        if create:
-            if isinstance(key, int):
-                while len(d) <= key:
-                    d.append(None)
-                if d[key] is None:
-                    d[key] = {} if isinstance(keys[i + 1], str) else []
-            else:
-                if key not in d or d[key] is None:
-                    d[key] = {} if isinstance(keys[i + 1], str) else []
-        d = d[key]
-    return d, keys[-1]
+        try:
+            child = current[key]
+        except (KeyError, IndexError):
+            if not create:
+                raise
+            child = {} if isinstance(keys[i + 1], str) else []
+            _assign_item(current, key, child)
+        current = child
+    return current, keys[-1]
 
 
 def _walk_to_parent_if_exists(d: dict, keys):
     current = d
     for key in keys[:-1]:
-        if isinstance(key, int):
-            if not isinstance(current, list):
-                return None, None
-            index = key
-            if index < 0:
-                index += len(current)
-            if index < 0 or index >= len(current):
-                return None, None
-            current = current[index]
-        else:
-            if not isinstance(current, dict):
-                return None, None
-            if key not in current:
-                return None, None
+        try:
             current = current[key]
+        except (KeyError, IndexError):
+            return None, None
     return current, keys[-1]
 
 

@@ -64,6 +64,16 @@ def test_infer_type_lazy_expression_resolves():
     assert cfg["warmup_steps"] == 100
 
 
+### --- resolve_lazy tests --- ###
+
+
+def test_resolve_lazy_skips_tuples():
+    cfg = {"a": (Lazy("1 + 1"),), "b": Lazy("1 + 1")}
+    resolve_lazy(cfg)
+    assert isinstance(cfg["a"][0], Lazy)
+    assert cfg["b"] == 2
+
+
 ### --- set_nested tests --- ###
 
 
@@ -204,9 +214,21 @@ def test_delete_list_negative_index():
 
 def test_delete_missing_path_noop():
     cfg = {"a": {"b": 1}}
-    overrides = ["a.c!=", "missing!=", "a.b.c!="]
+    overrides = ["a.c!=", "missing!="]
     updated = apply_overrides(cfg, overrides)
     assert updated == {"a": {"b": 1}}
+
+
+@pytest.mark.parametrize(
+    "cfg, override",
+    [
+        ({"a": {"b": 1}}, "a.b.c!="),
+        ({"items": ("a",)}, "items[0]!="),
+    ],
+)
+def test_delete_type_mismatch_raises(cfg, override):
+    with pytest.raises(TypeError):
+        apply_overrides(cfg, [override])
 
 
 def test_delete_list_value():
@@ -227,6 +249,18 @@ def test_remove_missing_path_noop():
     overrides = ["missing.path-='a'", "lists[1]-='a'"]
     updated = apply_overrides(cfg, overrides)
     assert updated == {"lists": [["a"]]}
+
+
+def test_delete_int_key_in_dict():
+    cfg = {"items": {0: "a", 1: "b"}}
+    updated = apply_overrides(cfg, ["items[0]!="])
+    assert updated == {"items": {1: "b"}}
+
+
+def test_remove_int_key_in_dict():
+    cfg = {"items": {0: ["a", "b"]}}
+    updated = apply_overrides(cfg, ["items[0]-='b'"])
+    assert updated == {"items": {0: ["a"]}}
 
 
 def test_set_special_key():
@@ -284,6 +318,12 @@ def test_format_sort_keys():
     cfg = {"b": 2, "a": 1}
     formatted = format(cfg, sort_keys=True)
     assert formatted == "{'a': 1, 'b': 2}"
+
+
+def test_format_sort_keys_skips_tuples():
+    cfg = {"a": ({"b": 2, "a": 1},)}
+    formatted = format(cfg, sort_keys=True)
+    assert formatted == "{'a': ({'b': 2, 'a': 1},)}"
 
 
 def test_dump_simple_dict(tmp_path):

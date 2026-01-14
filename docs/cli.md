@@ -36,7 +36,7 @@ cfgx dump configs/finetune.py -o trainer.max_steps=12000 > runs/finetune_config.
 - `-o, --overrides`: One or more override strings, e.g. `key=value`. You can pass
   multiple values after a single flag or repeat the flag.
 - `--format {pprint,ruff}`: Optional formatter to apply (dump only; default: no formatting).
-- `--sort-keys`: Sort dict keys throughout nested dict/list/tuple structures (including
+- `--sort-keys`: Sort dict keys throughout nested dict/list structures (including
   dict subclasses) before formatting (dump only; default: false).
 - `--no-resolve-lazy`: Print `Lazy` values without resolving them (render only).
 - `--no-pretty`: Print raw `repr(config)` output (render only).
