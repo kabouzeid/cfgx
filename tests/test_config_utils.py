@@ -161,6 +161,12 @@ def test_apply_overrides_append_non_list_raises():
         apply_overrides(cfg, ["a.b+=2"])
 
 
+def test_apply_overrides_append_none_target_raises():
+    cfg = {"items": [None]}
+    with pytest.raises(ValueError, match="not a list"):
+        apply_overrides(cfg, ["items[0]+=1"])
+
+
 def test_apply_overrides_set_negative_index():
     cfg = {"layers": ["conv1", "conv2"]}
     updated = apply_overrides(cfg, ["layers[-1]=conv3"])
@@ -268,6 +274,18 @@ def test_set_special_key():
     overrides = ["a.*=[1,2,3]"]
     updated = apply_overrides(cfg, overrides)
     assert updated == {"a": {"*": [1, 2, 3], "b": 1}}
+
+
+def test_set_through_tuple_item():
+    cfg = {"items": ({"a": 1},)}
+    updated = apply_overrides(cfg, ["items[0].a=2"])
+    assert updated == {"items": ({"a": 2},)}
+
+
+def test_set_int_key_in_dict():
+    cfg = {"items": {}}
+    updated = apply_overrides(cfg, ["items[0]=1"])
+    assert updated == {"items": {0: 1}}
 
 
 def test_combined_deletes_and_adds():
