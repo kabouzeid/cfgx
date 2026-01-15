@@ -15,10 +15,7 @@ def _render(args: argparse.Namespace) -> int:
         overrides=args.overrides or None,
         resolve_lazy=not args.no_resolve_lazy,
     )
-    if args.no_pretty:
-        output = format_config(cfg)
-    else:
-        output = format_config(cfg, format="pprint")
+    output = format_config(cfg, format=args.format)
     sys.stdout.write(f"{output}\n")
     return 0
 
@@ -55,9 +52,10 @@ def _add_render_parser(subparsers) -> None:
         help="Print Lazies without resolving them.",
     )
     parser.add_argument(
-        "--no-pretty",
-        action="store_true",
-        help="Print raw repr output instead of pprint formatting.",
+        "--format",
+        choices=("pretty", "raw", "ruff"),
+        default="pretty",
+        help="Formatter to apply.",
     )
     parser.set_defaults(func=_render)
 
@@ -71,9 +69,9 @@ def _add_dump_parser(subparsers) -> None:
     _add_common_args(parser)
     parser.add_argument(
         "--format",
-        choices=("pprint", "ruff"),
-        default=False,
-        help="Optional formatter to apply.",
+        choices=("pretty", "raw", "ruff"),
+        default="pretty",
+        help="Formatter to apply.",
     )
     parser.add_argument(
         "--sort-keys",

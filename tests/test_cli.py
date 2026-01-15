@@ -10,7 +10,7 @@ def test_render_basic(capsys, tmp_path):
 
     out = capsys.readouterr().out
     assert exit_code == 0
-    assert out == f"{format_config(load(cfg_path), format='pprint')}\n"
+    assert out == f"{format_config(load(cfg_path))}\n"
 
 
 def test_render_overrides_list(capsys, tmp_path):
@@ -23,7 +23,6 @@ def test_render_overrides_list(capsys, tmp_path):
     assert exit_code == 0
     expected = format_config(
         load(cfg_path, overrides=["a.b=2", "c=3"]),
-        format="pprint",
     )
     assert out == f"{expected}\n"
 
@@ -50,12 +49,12 @@ def test_render_no_resolve_lazy(capsys, tmp_path):
     assert "Lazy(" in out
 
 
-def test_render_no_pretty(capsys, tmp_path):
+def test_render_raw(capsys, tmp_path):
     cfg_path = tmp_path / "cfg.py"
     cfg_path.write_text("config = {'a': 1}\n")
 
-    exit_code = main(["render", str(cfg_path), "--no-pretty"])
+    exit_code = main(["render", str(cfg_path), "--format", "raw"])
 
     out = capsys.readouterr().out
     assert exit_code == 0
-    assert out == f"{format_config(load(cfg_path))}\n"
+    assert out == f"{format_config(load(cfg_path), format='raw')}\n"

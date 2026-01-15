@@ -90,15 +90,16 @@ def dump(
     config: dict,
     fd: TextIO,
     *,
-    format: str | bool = False,
+    format: str = "pretty",
     sort_keys: bool = False,
 ):
     """
-    Persist a config dictionary to a Python snapshot.
+    Persist a config dictionary to a Python snapshot (`config = ...`).
 
-    Formatting uses repr(config); the caller is responsible for ensuring it is valid
-    Python that can be reloaded with any required imports available. Otherwise
-    formatting can raise or the snapshot may fail to load.
+    Formatting uses repr(config); default formatting is "pretty". The caller is
+    responsible for ensuring it is valid Python that can be reloaded with any
+    required imports available. Otherwise formatting can raise or the snapshot
+    may fail to load. Use format="raw" for raw repr output.
 
     sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
@@ -110,15 +111,16 @@ def dump(
 def dumps(
     config: dict,
     *,
-    format: str | bool = False,
+    format: str = "pretty",
     sort_keys: bool = False,
 ) -> str:
     """
-    Return a Python snapshot string for a config dictionary.
+    Return a Python snapshot string (`config = ...`) for a config dictionary.
 
-    Formatting uses repr(config); the caller is responsible for ensuring it is valid
-    Python that can be reloaded with any required imports available. Otherwise
-    formatting can raise or the snapshot may fail to load.
+    Formatting uses repr(config); default formatting is "pretty". The caller is
+    responsible for ensuring it is valid Python that can be reloaded with any
+    required imports available. Otherwise formatting can raise or the snapshot
+    may fail to load. Use format="raw" for raw repr output.
 
     sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
@@ -129,14 +131,14 @@ def dumps(
 def _format_snapshot(
     config: dict,
     *,
-    format: str | bool = False,
+    format: str = "pretty",
     sort_keys: bool = False,
 ) -> str:
-    if sort_keys and format in {False, "ruff"}:
+    if sort_keys and format in {"raw", "ruff"}:
         config = _sort_keys(config)
-    if format is False:
+    if format == "raw":
         config_str = "config = " + repr(config)
-    elif format == "pprint":
+    elif format == "pretty":
         config_str = "config = " + pformat(
             config, width=88, sort_dicts=sort_keys
         )
@@ -150,22 +152,23 @@ def _format_snapshot(
 def format(
     config: dict,
     *,
-    format: str | bool = False,
+    format: str = "pretty",
     sort_keys: bool = False,
 ) -> str:
     """
     Return a string representation based on repr(config).
 
     Formatting is best-effort; invalid repr output can raise or fail to reload.
+    Formatting defaults to "pretty"; use format="raw" for raw repr output.
 
     sort_keys orders dict keys throughout nested dict/list structures,
     including dict subclasses.
     """
-    if format is False:
+    if format == "raw":
         if sort_keys:
             config = _sort_keys(config)
         return repr(config)
-    if format == "pprint":
+    if format == "pretty":
         return pformat(config, width=88, sort_dicts=sort_keys)
     if format == "ruff":
         if sort_keys:

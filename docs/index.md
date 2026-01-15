@@ -193,13 +193,13 @@ Freeze the exact configuration you ran:
     from pathlib import Path
     from cfgx import dump, format
 
-    print(format(cfg, format="pprint"))
+    print(format(cfg))
     with Path("runs/2026-01-12/config_snapshot.py").open("w") as f:
         dump(cfg, f, format="ruff")
     ```
 
-- `format` returns a string derived from `repr(cfg)`; formatting is opt-in (`pprint` or `ruff`).
-- `dump` writes the same representation to a file handle; `dumps` returns the snapshot string.
+- `format` returns a string derived from `repr(cfg)`; it defaults to `pretty` formatting and supports `format="raw"` for raw `repr` output or `format="ruff"` for Ruff formatting.
+- `dump` writes a loadable snapshot prefixed with `config =`; `dumps` returns the same snapshot string; both default to `pretty` formatting and accept `format="raw"` for raw output.
 - `sort_keys=True` sorts dict keys throughout nested dict/list structures, including
   dict subclasses.
 - These are best-effort snapshots: you're responsible for `repr()` being valid Python

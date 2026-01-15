@@ -12,7 +12,7 @@ paths as an implicit parent chain and apply overrides in order.
 
 ### `cfgx render` / `cfgx print`
 
-Pretty-print the config dictionary to stdout. Use `--no-pretty` to print the
+Pretty-print the config dictionary to stdout. Use `--format raw` to print the
 raw `repr(config)` output.
 
 ```bash
@@ -22,6 +22,8 @@ cfgx render configs/base.py configs/finetune.py -o trainer.max_steps=12000 train
 ### `cfgx dump` / `cfgx freeze`
 
 Print a Python snapshot (`config = ...`) to stdout.
+By default, the snapshot uses `pretty` formatting; use `--format raw` for raw
+`repr(config)` output.
 This is a best-effort snapshot based on `repr(config)`; you are responsible for
 ensuring it is valid Python that can recreate the config. Otherwise formatting
 can raise (for example, on a syntax error) or the output may fail to load
@@ -35,8 +37,7 @@ cfgx dump configs/finetune.py -o trainer.max_steps=12000 > runs/finetune_config.
 
 - `-o, --overrides`: One or more override strings, e.g. `key=value`. You can pass
   multiple values after a single flag or repeat the flag.
-- `--format {pprint,ruff}`: Optional formatter to apply (dump only; default: no formatting).
+- `--format {pretty,ruff,raw}`: Formatter to apply (default: `pretty`).
 - `--sort-keys`: Sort dict keys throughout nested dict/list structures (including
   dict subclasses) before formatting (dump only; default: false).
 - `--no-resolve-lazy`: Print `Lazy` values without resolving them (render only).
-- `--no-pretty`: Print raw `repr(config)` output (render only).

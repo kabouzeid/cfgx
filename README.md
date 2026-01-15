@@ -94,7 +94,7 @@ cfg = load(
     ],
 )
 
-print(format(cfg, format="pprint"))
+print(format(cfg))
 with open("runs/finetune_config.py", "w") as f:
     dump(cfg, f, format="ruff")
 ```
